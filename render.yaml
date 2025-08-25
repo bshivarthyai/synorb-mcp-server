@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: synorb-mcp-server
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:http
+    envVars:
+      - key: HTTP_MODE
+        value: true
+      - key: SYNORB_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: SYNORB_API_SECRET
+        sync: false  # Set manually in Render dashboard
+      - key: NODE_ENV
+        value: production
