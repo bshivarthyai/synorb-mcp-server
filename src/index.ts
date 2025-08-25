@@ -354,7 +354,8 @@ class SynorbMCPServer {
 
 // For HTTP mode (Render deployment)
 async function startHttpServer() {
-  const express = require('express');
+  // FIX: Use dynamic import for ES modules
+  const { default: express } = await import('express');
   const app = express();
   app.use(express.json());
 
