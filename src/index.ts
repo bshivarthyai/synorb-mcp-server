@@ -390,10 +390,18 @@ async function startHttpServer() {
   app.post('/mcp-call', async (req: any, res: any) => {
     try {
       const { name, arguments: args } = req.body;
-      const apiKey = req.headers['x-synorb-key'] || process.env.SYNORB_API_KEY;
-      const secret = req.headers['x-synorb-secret'] || process.env.SYNORB_API_SECRET;
+      
+      // Get credentials from headers OR query parameters
+      let apiKey = req.headers['x-synorb-key'] || req.query.api_key || process.env.SYNORB_API_KEY;
+      let secret = req.headers['x-synorb-secret'] || req.query.secret || process.env.SYNORB_API_SECRET;
+      
+      // Decode URL-encoded secret if it comes from query parameters
+      if (req.query.secret) {
+        secret = decodeURIComponent(secret);
+      }
       
       if (!apiKey || !secret) {
+        console.error('No credentials provided. Headers:', req.headers, 'Query:', req.query);
         return res.status(401).json({ error: 'API credentials not provided' });
       }
 
@@ -430,6 +438,7 @@ async function startHttpServer() {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
       });
     } catch (error: any) {
+      console.error('MCP call error:', error);
       res.status(500).json({ 
         error: error.message,
         content: [{ type: 'text', text: `Error: ${error.message}` }]
