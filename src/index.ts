@@ -17,26 +17,30 @@ const TestConnectionSchema = z.object({});
 const GetMetaSchema = z.object({});
 
 const GetEntityTypesSchema = z.object({
-  streamId: z.string().describe('The stream ID to fetch entity types for'),
+  feedid: z.string().describe('The stream ID to fetch entity types for'),
 });
 
 const GetEntityValuesSchema = z.object({
-  streamId: z.string().describe('The stream ID'),
-  entityType: z.string().optional().describe('Optional: entity type name'),
+  feedid: z.string().describe('The stream ID'),
+  entity_type: z.string().optional().describe('Optional: entity type name'),
 });
 
-const FetchStoriesSchema = z.object({
-  streamId: z.string().describe('Stream ID'),
-  format: z.enum(['json', 'markdown']).default('json').describe('Output format'),
-  bodySections: z.array(z.string()).optional().describe('Body sections (only for markdown)'),
-  entityFilters: z.array(z.object({
-    entityType: z.string(),
-    entityValue: z.string(),
-  })).optional().describe('Entity filters'),
-  dateFrom: z.string().optional().describe('Start date (YYYY-MM-DD)'),
-  dateTo: z.string().optional().describe('End date (YYYY-MM-DD)'),
-  pageNumber: z.number().default(0).describe('Page number for pagination'),
-  pageSize: z.number().default(10).describe('Page size for pagination'),
+const GetFeedContentSchema = z.object({
+  feed_id: z.number().describe('Stream ID'),
+  format: z.enum(['json', 'newsml', 'markdown', 'html']).default('json').describe('Response format'),
+  body_sections: z.array(z.string()).optional().describe('Body sections (only for markdown)'),
+  entity_details: z.array(z.object({
+    entity_type: z.string(),
+    entity_value: z.string(),
+  })).optional().describe('List of entity filters'),
+  published_date_from: z.string().optional().describe('Start date (YYYY-MM-DD)'),
+  published_date_to: z.string().optional().describe('End date (YYYY-MM-DD)'),
+  created_on_from: z.string().optional().describe('Created on start date (YYYY-MM-DD)'),
+  created_on_to: z.string().optional().describe('Created on end date (YYYY-MM-DD)'),
+  page_num: z.number().default(0).describe('Page number for pagination'),
+  page_size: z.number().default(10).describe('Page size for pagination'),
+  is_active: z.boolean().optional().describe('Whether to fetch only active feeds'),
+  max_stories: z.number().optional().describe('Maximum number of stories to return'),
 });
 
 class SynorbAPIClient {
@@ -68,72 +72,65 @@ class SynorbAPIClient {
   async getMeta() {
     try {
       const response = await this.axios.get('/content/meta');
-      return { success: true, data: response.data };
+      return response.data;
     } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || error.message 
-      };
+      throw new Error(error.response?.data?.message || error.message);
     }
   }
 
-  async getEntityTypes(streamId: string) {
+  async getEntityTypes(feedid: string) {
     try {
-      const response = await this.axios.get(`/content/entity-types/${streamId}`);
-      return { success: true, data: response.data };
+      const response = await this.axios.get(`/content/entity-types/${feedid}`);
+      return response.data;
     } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || error.message 
-      };
+      throw new Error(error.response?.data?.message || error.message);
     }
   }
 
-  async getEntityValues(streamId: string, entityType?: string) {
+  async getEntityValues(feedid: string, entityType?: string) {
     try {
       const params: any = {};
       if (entityType) params.entity_type = entityType;
       
-      const response = await this.axios.get(`/content/entity-values/${streamId}`, { params });
-      return { success: true, data: response.data };
+      const response = await this.axios.get(`/content/entity-values/${feedid}`, { params });
+      return response.data;
     } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || error.message 
-      };
+      throw new Error(error.response?.data?.message || error.message);
     }
   }
 
-  async fetchStories(params: z.infer<typeof FetchStoriesSchema>) {
+  async getFeedContent(params: z.infer<typeof GetFeedContentSchema>) {
     try {
       const requestParams: any = {
-        feed_id: params.streamId,
-        format: params.format,
-        page_num: params.pageNumber,
-        page_size: params.pageSize,
+        feed_id: params.feed_id,
+        format: params.format || 'json',
+        page_num: params.page_num || 0,
+        page_size: params.page_size || 10,
       };
 
-      if (params.dateFrom) requestParams.published_date_from = params.dateFrom;
-      if (params.dateTo) requestParams.published_date_to = params.dateTo;
+      if (params.published_date_from) requestParams.published_date_from = params.published_date_from;
+      if (params.published_date_to) requestParams.published_date_to = params.published_date_to;
+      if (params.created_on_from) requestParams.created_on_from = params.created_on_from;
+      if (params.created_on_to) requestParams.created_on_to = params.created_on_to;
+      if (params.is_active !== undefined) requestParams.is_active = params.is_active;
       
-      if (params.bodySections && params.format === 'markdown') {
-        requestParams.body_sections = params.bodySections;
+      if (params.body_sections && params.format === 'markdown') {
+        requestParams.body_sections = params.body_sections;
       }
       
-      if (params.entityFilters && params.entityFilters.length > 0) {
-        requestParams.entity_details = params.entityFilters.map(filter => ({
-          entity_type: filter.entityType,
-          entity_value: filter.entityValue,
-        }));
+      if (params.entity_details && params.entity_details.length > 0) {
+        requestParams.entity_details = params.entity_details;
+      }
+
+      // Handle max_stories limit if provided
+      if (params.max_stories) {
+        requestParams.page_size = Math.min(params.max_stories, 100); // Cap at 100 per request
       }
 
       const response = await this.axios.get('/content/feed', { params: requestParams });
-      return { success: true, data: response.data };
+      return response.data;
     } catch (error: any) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || error.message 
-      };
+      throw new Error(error.response?.data?.message || error.message);
     }
   }
 }
@@ -163,7 +160,7 @@ class SynorbMCPServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       const tools: Tool[] = [
         {
-          name: 'test_connection',
+          name: 'Synorb Streams:test-connection',
           description: 'Test if the API credentials are valid',
           inputSchema: {
             type: 'object',
@@ -171,98 +168,114 @@ class SynorbMCPServer {
           },
         },
         {
-          name: 'get_meta',
-          description: 'Get all streams and metadata',
+          name: 'Synorb Streams:get-synorb-stream-meta',
+          description: 'Discover all streams and metadata available',
           inputSchema: {
             type: 'object',
             properties: {},
           },
         },
         {
-          name: 'get_entity_types',
-          description: 'Get entity types available within a specific stream',
+          name: 'Synorb Streams:get-synorb-stream-entity-types',
+          description: 'Retrieve entity types available within a specific stream',
           inputSchema: {
             type: 'object',
             properties: {
-              streamId: {
+              feedid: {
                 type: 'string',
                 description: 'The stream ID to fetch entity types for',
               },
             },
-            required: ['streamId'],
+            required: ['feedid'],
           },
         },
         {
-          name: 'get_entity_values',
-          description: 'Get entity values for a given entity type in a stream',
+          name: 'Synorb Streams:get-synorb-stream-entity-values',
+          description: 'Retrieve entity values for a given entity type in a stream',
           inputSchema: {
             type: 'object',
             properties: {
-              streamId: {
+              feedid: {
                 type: 'string',
                 description: 'The stream ID',
               },
-              entityType: {
+              entity_type: {
                 type: 'string',
                 description: 'Optional: entity type name',
               },
             },
-            required: ['streamId'],
+            required: ['feedid'],
           },
         },
         {
-          name: 'fetch_stories',
+          name: 'Synorb Streams:get-synorb-stream-feed-content',
           description: 'Fetch stories from a stream with optional filters',
           inputSchema: {
             type: 'object',
             properties: {
-              streamId: {
-                type: 'string',
+              feed_id: {
+                type: 'number',
                 description: 'Stream ID',
               },
               format: {
                 type: 'string',
-                enum: ['json', 'markdown'],
+                enum: ['json', 'newsml', 'markdown', 'html'],
                 default: 'json',
-                description: 'Output format',
+                description: 'Response format',
               },
-              bodySections: {
+              body_sections: {
                 type: 'array',
                 items: { type: 'string' },
                 description: 'Body sections to include (only for markdown format)',
               },
-              entityFilters: {
+              entity_details: {
                 type: 'array',
                 items: {
                   type: 'object',
                   properties: {
-                    entityType: { type: 'string' },
-                    entityValue: { type: 'string' },
+                    entity_type: { type: 'string' },
+                    entity_value: { type: 'string' },
                   },
-                  required: ['entityType', 'entityValue'],
+                  required: ['entity_type', 'entity_value'],
                 },
                 description: 'List of entity filters',
               },
-              dateFrom: {
+              published_date_from: {
                 type: 'string',
                 description: 'Start date (YYYY-MM-DD)',
               },
-              dateTo: {
+              published_date_to: {
                 type: 'string',
                 description: 'End date (YYYY-MM-DD)',
               },
-              pageNumber: {
+              created_on_from: {
+                type: 'string',
+                description: 'Created on start date (YYYY-MM-DD)',
+              },
+              created_on_to: {
+                type: 'string',
+                description: 'Created on end date (YYYY-MM-DD)',
+              },
+              page_num: {
                 type: 'number',
                 default: 0,
                 description: 'Page number for pagination',
               },
-              pageSize: {
+              page_size: {
                 type: 'number',
                 default: 10,
                 description: 'Page size for pagination',
               },
+              is_active: {
+                type: 'boolean',
+                description: 'Whether to fetch only active feeds',
+              },
+              max_stories: {
+                type: 'number',
+                description: 'Maximum number of stories to return',
+              },
             },
-            required: ['streamId'],
+            required: ['feed_id'],
           },
         },
       ];
@@ -288,42 +301,42 @@ class SynorbMCPServer {
 
       try {
         switch (name) {
-          case 'test_connection': {
+          case 'Synorb Streams:test-connection': {
             const result = await this.apiClient.testConnection();
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
           }
 
-          case 'get_meta': {
+          case 'Synorb Streams:get-synorb-stream-meta': {
             const result = await this.apiClient.getMeta();
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
           }
 
-          case 'get_entity_types': {
+          case 'Synorb Streams:get-synorb-stream-entity-types': {
             const validated = GetEntityTypesSchema.parse(args);
-            const result = await this.apiClient.getEntityTypes(validated.streamId);
+            const result = await this.apiClient.getEntityTypes(validated.feedid);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
           }
 
-          case 'get_entity_values': {
+          case 'Synorb Streams:get-synorb-stream-entity-values': {
             const validated = GetEntityValuesSchema.parse(args);
             const result = await this.apiClient.getEntityValues(
-              validated.streamId,
-              validated.entityType
+              validated.feedid,
+              validated.entity_type
             );
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
           }
 
-          case 'fetch_stories': {
-            const validated = FetchStoriesSchema.parse(args);
-            const result = await this.apiClient.fetchStories(validated);
+          case 'Synorb Streams:get-synorb-stream-feed-content': {
+            const validated = GetFeedContentSchema.parse(args);
+            const result = await this.apiClient.getFeedContent(validated);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
@@ -373,63 +386,54 @@ async function startHttpServer() {
     res.json({ status: 'ok', service: 'synorb-mcp-server' });
   });
 
-  // Test connection endpoint
-  app.post('/test_connection', async (req: any, res: any) => {
+  // MCP endpoint to handle all tool calls from the relay
+  app.post('/mcp-call', async (req: any, res: any) => {
     try {
-      const { apiKey: clientKey, secret: clientSecret } = req.body;
-      const client = new SynorbAPIClient(clientKey || apiKey, clientSecret || secret);
-      const result = await client.testConnection();
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+      const { name, arguments: args } = req.body;
+      const apiKey = req.headers['x-synorb-key'] || process.env.SYNORB_API_KEY;
+      const secret = req.headers['x-synorb-secret'] || process.env.SYNORB_API_SECRET;
+      
+      if (!apiKey || !secret) {
+        return res.status(401).json({ error: 'API credentials not provided' });
+      }
 
-  // Meta endpoint
-  app.post('/get_meta', async (req: any, res: any) => {
-    try {
-      const { apiKey: clientKey, secret: clientSecret } = req.body;
-      const client = new SynorbAPIClient(clientKey || apiKey, clientSecret || secret);
-      const result = await client.getMeta();
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+      const client = new SynorbAPIClient(apiKey, secret);
+      let result;
 
-  // Entity types endpoint
-  app.post('/get_entity_types', async (req: any, res: any) => {
-    try {
-      const { streamId, apiKey: clientKey, secret: clientSecret } = req.body;
-      const client = new SynorbAPIClient(clientKey || apiKey, clientSecret || secret);
-      const result = await client.getEntityTypes(streamId);
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+      switch (name) {
+        case 'Synorb Streams:test-connection':
+          result = await client.testConnection();
+          break;
 
-  // Entity values endpoint
-  app.post('/get_entity_values', async (req: any, res: any) => {
-    try {
-      const { streamId, entityType, apiKey: clientKey, secret: clientSecret } = req.body;
-      const client = new SynorbAPIClient(clientKey || apiKey, clientSecret || secret);
-      const result = await client.getEntityValues(streamId, entityType);
-      res.json(result);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+        case 'Synorb Streams:get-synorb-stream-meta':
+          result = await client.getMeta();
+          break;
 
-  // Fetch stories endpoint
-  app.post('/fetch_stories', async (req: any, res: any) => {
-    try {
-      const { apiKey: clientKey, secret: clientSecret, ...params } = req.body;
-      const client = new SynorbAPIClient(clientKey || apiKey, clientSecret || secret);
-      const result = await client.fetchStories(params);
-      res.json(result);
+        case 'Synorb Streams:get-synorb-stream-entity-types':
+          result = await client.getEntityTypes(args.feedid);
+          break;
+
+        case 'Synorb Streams:get-synorb-stream-entity-values':
+          result = await client.getEntityValues(args.feedid, args.entity_type);
+          break;
+
+        case 'Synorb Streams:get-synorb-stream-feed-content':
+          result = await client.getFeedContent(args);
+          break;
+
+        default:
+          return res.status(400).json({ error: `Unknown tool: ${name}` });
+      }
+
+      // Return in MCP format
+      res.json({
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
+      });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ 
+        error: error.message,
+        content: [{ type: 'text', text: `Error: ${error.message}` }]
+      });
     }
   });
 
