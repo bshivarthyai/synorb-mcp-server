@@ -420,30 +420,40 @@ async function startHttpServer() {
       const client = new SynorbAPIClient(apiKey, secret);
       let result;
 
+      // Handle both formats: with and without "Synorb Streams:" prefix
       switch (name) {
         case 'Synorb Streams:test-connection':
+        case 'test-connection':
           console.log('Calling test-connection...');
           result = await client.testConnection();
           break;
 
         case 'Synorb Streams:get-synorb-stream-meta':
+        case 'get-synorb-stream-meta':
           console.log('Calling get-synorb-stream-meta...');
           result = await client.getMeta();
           break;
 
         case 'Synorb Streams:get-synorb-stream-entity-types':
+        case 'get-synorb-stream-entity-types':
+          console.log('Calling get-synorb-stream-entity-types...');
           result = await client.getEntityTypes(args.feedid);
           break;
 
         case 'Synorb Streams:get-synorb-stream-entity-values':
+        case 'get-synorb-stream-entity-values':
+          console.log('Calling get-synorb-stream-entity-values...');
           result = await client.getEntityValues(args.feedid, args.entity_type);
           break;
 
         case 'Synorb Streams:get-synorb-stream-feed-content':
+        case 'get-synorb-stream-feed-content':
+          console.log('Calling get-synorb-stream-feed-content...');
           result = await client.getFeedContent(args);
           break;
 
         default:
+          console.log('Unknown tool name:', name);
           return res.status(400).json({ error: `Unknown tool: ${name}` });
       }
 
