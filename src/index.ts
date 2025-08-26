@@ -389,7 +389,8 @@ async function startHttpServer() {
   // MCP endpoint to handle all tool calls from the relay
   app.post('/mcp-call', async (req: any, res: any) => {
     try {
-      const { name, arguments: args } = req.body;
+      // FIX: Handle JSON-RPC format where params are nested
+      const { name, arguments: args } = req.body.params || req.body;
       
       // Debug logging
       console.log('=== MCP-CALL DEBUG ===');
@@ -397,6 +398,8 @@ async function startHttpServer() {
       console.log('Query params:', JSON.stringify(req.query));
       console.log('Body:', JSON.stringify(req.body));
       console.log('URL:', req.url);
+      console.log('Tool name:', name);
+      console.log('Arguments:', args);
       
       // Get credentials from headers OR query parameters
       let apiKey = req.headers['x-synorb-key'] || req.query.api_key || process.env.SYNORB_API_KEY;
