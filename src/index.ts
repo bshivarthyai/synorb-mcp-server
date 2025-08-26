@@ -9,7 +9,7 @@ import axios, { AxiosInstance } from 'axios';
 import { z } from 'zod';
 
 // API Base URL
-const API_BASE_URL = 'https://contentfeedapi.machinegenerated.com/api/v1';
+const API_BASE_URL = 'https://feeds.parsym.com';
 
 // Tool schemas
 const TestConnectionSchema = z.object({});
@@ -59,7 +59,7 @@ class SynorbAPIClient {
 
   async testConnection() {
     try {
-      const response = await this.axios.get('/content/meta');
+      const response = await this.axios.get('/api/content/feeds/meta');
       return { success: true, message: 'Authentication successful', data: response.data };
     } catch (error: any) {
       return { 
@@ -71,7 +71,7 @@ class SynorbAPIClient {
 
   async getMeta() {
     try {
-      const response = await this.axios.get('/content/meta');
+      const response = await this.axios.get('/api/content/feeds/meta');
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || error.message);
@@ -80,7 +80,7 @@ class SynorbAPIClient {
 
   async getEntityTypes(feedid: string) {
     try {
-      const response = await this.axios.get(`/content/entity-types/${feedid}`);
+      const response = await this.axios.get(`/api/content/entity_types/${feedid}`);
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || error.message);
@@ -92,7 +92,7 @@ class SynorbAPIClient {
       const params: any = {};
       if (entityType) params.entity_type = entityType;
       
-      const response = await this.axios.get(`/content/entity-values/${feedid}`, { params });
+      const response = await this.axios.get(`/api/content/entity_values/${feedid}`, { params });
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || error.message);
@@ -127,7 +127,7 @@ class SynorbAPIClient {
         requestParams.page_size = Math.min(params.max_stories, 100); // Cap at 100 per request
       }
 
-      const response = await this.axios.get('/content/feed', { params: requestParams });
+      const response = await this.axios.get('/api/content/feed', { params: requestParams });
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || error.message);
