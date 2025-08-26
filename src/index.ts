@@ -9,7 +9,7 @@ import axios, { AxiosInstance } from 'axios';
 import { z } from 'zod';
 
 // API Base URL
-const API_BASE_URL = 'https://feeds.parsym.com/api/v1';
+const API_BASE_URL = 'https://contentfeedapi.machinegenerated.com/api/v1';
 
 // Tool schemas
 const TestConnectionSchema = z.object({});
