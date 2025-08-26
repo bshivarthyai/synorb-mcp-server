@@ -391,29 +391,43 @@ async function startHttpServer() {
     try {
       const { name, arguments: args } = req.body;
       
+      // Debug logging
+      console.log('=== MCP-CALL DEBUG ===');
+      console.log('Headers:', JSON.stringify(req.headers));
+      console.log('Query params:', JSON.stringify(req.query));
+      console.log('Body:', JSON.stringify(req.body));
+      console.log('URL:', req.url);
+      
       // Get credentials from headers OR query parameters
       let apiKey = req.headers['x-synorb-key'] || req.query.api_key || process.env.SYNORB_API_KEY;
       let secret = req.headers['x-synorb-secret'] || req.query.secret || process.env.SYNORB_API_SECRET;
       
+      console.log('Before decode - apiKey:', apiKey);
+      console.log('Before decode - secret:', secret);
+      
       // Decode URL-encoded secret if it comes from query parameters
       if (req.query.secret) {
         secret = decodeURIComponent(secret);
+        console.log('After decode - secret:', secret);
       }
       
       if (!apiKey || !secret) {
-        console.error('No credentials provided. Headers:', req.headers, 'Query:', req.query);
+        console.error('No credentials! apiKey:', apiKey, 'secret:', secret);
         return res.status(401).json({ error: 'API credentials not provided' });
       }
 
+      console.log('Creating client with credentials...');
       const client = new SynorbAPIClient(apiKey, secret);
       let result;
 
       switch (name) {
         case 'Synorb Streams:test-connection':
+          console.log('Calling test-connection...');
           result = await client.testConnection();
           break;
 
         case 'Synorb Streams:get-synorb-stream-meta':
+          console.log('Calling get-synorb-stream-meta...');
           result = await client.getMeta();
           break;
 
@@ -433,12 +447,14 @@ async function startHttpServer() {
           return res.status(400).json({ error: `Unknown tool: ${name}` });
       }
 
+      console.log('Result success:', result.success || !!result);
+      
       // Return in MCP format
       res.json({
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
       });
     } catch (error: any) {
-      console.error('MCP call error:', error);
+      console.error('MCP call error:', error.message);
       res.status(500).json({ 
         error: error.message,
         content: [{ type: 'text', text: `Error: ${error.message}` }]
